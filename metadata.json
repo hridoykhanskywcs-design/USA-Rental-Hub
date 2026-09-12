@@ -1,0 +1,6 @@
+{
+  "name": "Nestryy - US Rental & Property Platform",
+  "description": "Next-generation US rental marketplace with verified tenant screening, property listings, automated bulk management, landlord suite, and marketing campaign portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
