@@ -1,0 +1,18 @@
+{
+  "short_name": "Nestryy",
+  "name": "Nestryy - US Rentals & Tenant Screening",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0c0a09",
+  "theme_color": "#0d9488",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "description": "Next-generation US rental marketplace with verified tenant screening, credit checks, landlord management suite, and tenant wanted board."
+}

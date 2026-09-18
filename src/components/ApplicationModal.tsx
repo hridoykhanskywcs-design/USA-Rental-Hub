@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
+import { firestoreSync } from '../services/firestoreSync';
 import {
   X,
   ShieldCheck,
@@ -36,6 +37,8 @@ export const ApplicationModal: React.FC = () => {
     addToast,
     refreshData,
     setCurrentView,
+    currentUser,
+    setAuthModalOpen,
   } = useApp();
 
   const [step, setStep] = useState<number>(1);
@@ -114,9 +117,52 @@ export const ApplicationModal: React.FC = () => {
     petsCount: 0,
     guarantorName: '',
     guarantorIncome: 18000,
+
+    // Credit & Background Reports Submission
+    creditScoreValue: 760,
+    creditBureauName: 'TransUnion / Experian',
+    creditReportDocName: 'experian_credit_report_aug2026.pdf',
+    creditReportDocUrl: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80',
+    backgroundCheckStatus: 'CLEAR' as 'CLEAR' | 'PENDING' | 'CONSENT_GRANTED',
+    backgroundCheckProvider: 'TransUnion SmartMove Certified',
+    backgroundReportDocName: 'transunion_criminal_eviction_report.pdf',
+    backgroundReportDocUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=80',
   });
 
   if (!applyingProperty) return null;
+
+  if (!currentUser) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center space-y-4">
+          <div className="w-14 h-14 bg-teal-50 dark:bg-teal-950 text-teal-600 rounded-2xl mx-auto flex items-center justify-center shadow-inner">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-stone-900 dark:text-white">Account Login Required</h3>
+            <p className="text-xs text-stone-500 mt-1">
+              To apply for <span className="font-bold text-stone-700 dark:text-stone-300">{applyingProperty.title}</span>, you must be signed in to verify your identity and track your rental application status.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-1.5"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Sign In or Create Account</span>
+            </button>
+            <button
+              onClick={() => setApplyingProperty(null)}
+              className="w-full py-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl text-xs font-semibold hover:bg-stone-200 dark:hover:bg-stone-700 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const activeAffiliates = affiliates.filter((a) => a.isActive);
   const creditAffiliate = activeAffiliates.find((a) => a.category === 'CREDIT_SCORE') || {
@@ -140,13 +186,13 @@ export const ApplicationModal: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await api.submitApplication({
+      const submitted = await api.submitApplication({
         propertyId: applyingProperty.id,
         propertyTitle: applyingProperty.title,
         propertyRent: applyingProperty.rent,
-        applicantId: `usr-${Date.now()}`,
-        applicantName: formData.applicantName || 'Jordan Taylor',
-        applicantEmail: formData.applicantEmail || 'jordan.taylor@example.com',
+        applicantId: currentUser?.id || `usr-${Date.now()}`,
+        applicantName: formData.applicantName || currentUser?.fullName || 'Jordan Taylor',
+        applicantEmail: formData.applicantEmail || currentUser?.email || 'jordan.taylor@example.com',
         applicantPhone: formData.applicantPhone || '+1 (415) 890-4122',
         dateOfBirth: formData.dateOfBirth,
         ssn: formData.ssn,
@@ -209,14 +255,25 @@ export const ApplicationModal: React.FC = () => {
         creditScoreRange: formData.creditScoreRange,
         creditScoreVerified: formData.creditScoreVerified,
         creditScoreReportUrl: creditAffiliate.url,
+        creditScoreValue: Number(formData.creditScoreValue) || 760,
+        creditBureauName: formData.creditBureauName,
+        creditReportDocUrl: formData.creditReportDocUrl,
+        backgroundCheckStatus: formData.backgroundCheckStatus,
+        backgroundCheckProvider: formData.backgroundCheckProvider,
+        backgroundReportDocUrl: formData.backgroundReportDocUrl,
         hasGuarantor,
         guarantorName: hasGuarantor ? formData.guarantorName : undefined,
         guarantorIncome: hasGuarantor ? Number(formData.guarantorIncome) : undefined,
         petsCount: Number(formData.petsCount),
         occupantsCount: Number(formData.occupantsCount),
         moveInDate: formData.moveInDate,
-        adminNotes: 'High-trust Verified Tenant Dossier with Card on file, DL front/back, Bank Statement, and Biometric Selfie match.',
+        verifiedMemberBadge: !!currentUser?.isVerifiedMember,
+        verifiedMemberTier: (currentUser?.verifiedPlanType === 'PAID_VERIFIED' || currentUser?.membershipTier === 'PRO_VERIFIED' || currentUser?.membershipTier === 'VIP_ENTERPRISE') ? 'PRO_VERIFIED' : 'FREE_VERIFIED',
+        adminNotes: 'High-trust Verified Tenant Dossier with Card on file, DL front/back, Bank Statement, Credit Score & Background report, and Biometric Selfie match.',
       });
+      if (submitted) {
+        firestoreSync.submitApplication(submitted).catch(() => {});
+      }
 
       addToast(
         'Verified Application Submitted!',
@@ -268,7 +325,7 @@ export const ApplicationModal: React.FC = () => {
             { num: 1, label: 'Personal & Social' },
             { num: 2, label: 'Address Proof' },
             { num: 3, label: 'Income & Bank' },
-            { num: 4, label: 'ID, Selfie & Card' },
+            { num: 4, label: 'ID, Credit & Background' },
           ].map((s) => (
             <button
               key={s.num}
@@ -1213,6 +1270,158 @@ export const ApplicationModal: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, cardZip: e.target.value })}
                       className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg bg-stone-800 border border-stone-700 text-white outline-none"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* DEDICATED SECTION: Submitting Credits and Background Reports */}
+              <div className="p-4 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200/50 dark:border-emerald-900/40">
+                  <div>
+                    <h5 className="text-xs font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Credit Score &amp; Comprehensive Background Reports Submission</span>
+                    </h5>
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                      Submit your certified credit score and background check dossier to expedite landlord approval.
+                    </p>
+                  </div>
+                  <span className="self-start sm:self-auto px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 rounded text-[10px] font-bold">
+                    FCRA Compliant Submission
+                  </span>
+                </div>
+
+                {/* Sub-card 1: Credit Score Report Submission */}
+                <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-emerald-100 dark:border-emerald-950 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-teal-600" />
+                      Credit Score &amp; Credit Bureau Dossier
+                    </span>
+                    <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950 px-2 py-0.5 rounded">
+                      Pre-Screened
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                        Exact Credit Score (300 - 850) *
+                      </label>
+                      <input
+                        type="number"
+                        min={300}
+                        max={850}
+                        value={formData.creditScoreValue}
+                        onChange={(e) => setFormData({ ...formData, creditScoreValue: Number(e.target.value) })}
+                        className="w-full px-3 py-1.5 text-xs font-bold font-mono rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                        Reporting Credit Bureau / System *
+                      </label>
+                      <select
+                        value={formData.creditBureauName}
+                        onChange={(e) => setFormData({ ...formData, creditBureauName: e.target.value })}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+                      >
+                        <option value="TransUnion / Experian">TransUnion / Experian (Recommended)</option>
+                        <option value="TransUnion SmartMove Certified">TransUnion SmartMove Certified</option>
+                        <option value="Experian Connect Soft Check">Experian Connect Soft Check</option>
+                        <option value="Equifax ResidentScore">Equifax ResidentScore</option>
+                        <option value="Credit Karma Consumer Disclosure">Credit Karma Consumer Disclosure</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-2 bg-stone-50 dark:bg-stone-800/60 rounded-lg border border-stone-200 dark:border-stone-700">
+                    <FileCheck className="w-8 h-8 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-stone-900 dark:text-white truncate">
+                        {formData.creditReportDocName}
+                      </p>
+                      <p className="text-[10px] text-stone-500">Official Credit Report PDF &bull; TransUnion Verified</p>
+                    </div>
+                    <label className="cursor-pointer px-2.5 py-1.5 bg-white dark:bg-stone-800 hover:bg-stone-100 text-stone-700 dark:text-stone-300 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-600 transition flex items-center gap-1">
+                      <Upload className="w-3 h-3" />
+                      <span>Upload Report</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            setFormData({ ...formData, creditReportDocName: e.target.files[0].name });
+                            addToast('Credit Report Uploaded', `${e.target.files[0].name} submitted to application.`, 'success');
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Sub-card 2: Background Report Submission */}
+                <div className="p-3.5 bg-white dark:bg-stone-900 rounded-xl border border-emerald-100 dark:border-emerald-950 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Criminal History &amp; Eviction Screening Report
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded">
+                      Clearance Attached
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                        Background Check Status *
+                      </label>
+                      <select
+                        value={formData.backgroundCheckStatus}
+                        onChange={(e) => setFormData({ ...formData, backgroundCheckStatus: e.target.value as 'CLEAR' | 'PENDING' | 'CONSENT_GRANTED' })}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white"
+                      >
+                        <option value="CLEAR">CLEAR - Zero Evictions or Criminal Records</option>
+                        <option value="CONSENT_GRANTED">CONSENT GRANTED - Run automated background check</option>
+                        <option value="PENDING">PENDING - External Report Uploaded Below</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                        Screening Agency / Provider *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.backgroundCheckProvider}
+                        onChange={(e) => setFormData({ ...formData, backgroundCheckProvider: e.target.value })}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-white outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-2 bg-stone-50 dark:bg-stone-800/60 rounded-lg border border-stone-200 dark:border-stone-700">
+                    <FileCheck className="w-8 h-8 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-stone-900 dark:text-white truncate">
+                        {formData.backgroundReportDocName}
+                      </p>
+                      <p className="text-[10px] text-stone-500">Certified Background &amp; Eviction Report PDF &bull; Passed</p>
+                    </div>
+                    <label className="cursor-pointer px-2.5 py-1.5 bg-white dark:bg-stone-800 hover:bg-stone-100 text-stone-700 dark:text-stone-300 text-xs font-bold rounded-lg border border-stone-300 dark:border-stone-600 transition flex items-center gap-1">
+                      <Upload className="w-3 h-3" />
+                      <span>Upload Background PDF</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            setFormData({ ...formData, backgroundReportDocName: e.target.files[0].name });
+                            addToast('Background Report Uploaded', `${e.target.files[0].name} submitted to application.`, 'success');
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
                 </div>
               </div>

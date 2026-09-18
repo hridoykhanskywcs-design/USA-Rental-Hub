@@ -33,7 +33,9 @@ import {
   Navigation,
   Sliders,
   ChevronRight,
+  User,
 } from 'lucide-react';
+import { VerifiedMemberBadge } from './VerifiedMemberBadge';
 
 export const PropertyDetailModal: React.FC = () => {
   const {
@@ -47,6 +49,7 @@ export const PropertyDetailModal: React.FC = () => {
     settings,
     affiliates,
     triggerAffiliateClick,
+    openUserProfile,
   } = useApp();
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -518,20 +521,79 @@ export const PropertyDetailModal: React.FC = () => {
 
               {/* Landlord Contact */}
               <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-lg">
+                <div
+                  className="flex items-center gap-3 cursor-pointer group"
+                  onClick={() => {
+                    openUserProfile({
+                      id: selectedProperty.landlordId || 'landlord-1',
+                      fullName: selectedProperty.landlordName || 'Verified Property Host',
+                      email: selectedProperty.landlordContact?.email || 'host@nestryy.com',
+                      phone: selectedProperty.landlordContact?.phone || '+1 (555) 392-1082',
+                      role: 'LANDLORD',
+                      membershipTier: selectedProperty.landlordMembershipTier || 'PRO_VERIFIED',
+                      verifiedPlanType: selectedProperty.landlordVerifiedPlanType || 'PAID_VERIFIED',
+                      isVerifiedMember: true,
+                      verificationStatus: 'VERIFIED',
+                      bio: `Verified property manager on Nestryy managing verified residences in ${selectedProperty.address.city}.`,
+                      targetCity: `${selectedProperty.address.city}, ${selectedProperty.address.state}`,
+                      creditScoreValue: 790,
+                      creditBureauName: 'Experian Commercial Soft Check',
+                      backgroundCheckStatus: 'CLEAR',
+                      backgroundCheckProvider: 'TransUnion SmartMove Certified',
+                    });
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-lg group-hover:ring-2 group-hover:ring-teal-500 transition">
                     {(selectedProperty.landlordName || 'N').charAt(0)}
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-stone-900 dark:text-white flex items-center gap-1.5">
-                      <span>{selectedProperty.landlordName || 'Property Host'}</span>
-                      <ShieldCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                    </h4>
-                    <p className="text-xs text-stone-500">Verified Nestryy Partner Host &bull; Identity Cleared</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold text-sm text-stone-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">
+                        {selectedProperty.landlordName || 'Property Host'}
+                      </span>
+                      <VerifiedMemberBadge
+                        isVerified={selectedProperty.landlordIsVerified ?? true}
+                        tier={selectedProperty.landlordVerifiedPlanType || 'PAID_VERIFIED'}
+                        membershipTier={selectedProperty.landlordMembershipTier || 'PRO_VERIFIED'}
+                        size="xs"
+                      />
+                    </div>
+                    <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
+                      <span>Verified Nestryy Partner Host &bull; Identity Cleared</span>
+                      <span className="text-teal-600 dark:text-teal-400 font-semibold group-hover:underline ml-1">
+                        (View Profile)
+                      </span>
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openUserProfile({
+                        id: selectedProperty.landlordId || 'landlord-1',
+                        fullName: selectedProperty.landlordName || 'Verified Property Host',
+                        email: selectedProperty.landlordContact?.email || 'host@nestryy.com',
+                        phone: selectedProperty.landlordContact?.phone || '+1 (555) 392-1082',
+                        role: 'LANDLORD',
+                        membershipTier: selectedProperty.landlordMembershipTier || 'PRO_VERIFIED',
+                        verifiedPlanType: selectedProperty.landlordVerifiedPlanType || 'PAID_VERIFIED',
+                        isVerifiedMember: true,
+                        verificationStatus: 'VERIFIED',
+                        bio: `Verified property manager on Nestryy managing verified residences in ${selectedProperty.address.city}.`,
+                        targetCity: `${selectedProperty.address.city}, ${selectedProperty.address.state}`,
+                        creditScoreValue: 790,
+                        creditBureauName: 'Experian Commercial Soft Check',
+                        backgroundCheckStatus: 'CLEAR',
+                        backgroundCheckProvider: 'TransUnion SmartMove Certified',
+                      });
+                    }}
+                    className="p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold flex items-center gap-1.5 text-stone-700 dark:text-stone-300"
+                  >
+                    <User className="w-3.5 h-3.5 text-teal-600" />
+                    <span>View Profile</span>
+                  </button>
                   {selectedProperty.landlordContact?.phone && (
                     <a
                       href={`tel:${selectedProperty.landlordContact.phone}`}

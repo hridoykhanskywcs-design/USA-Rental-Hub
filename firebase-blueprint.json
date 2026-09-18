@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access for Renters, Landlords, and Admins",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["RENTER", "LANDLORD", "PROPERTY_MANAGER", "ADMIN", "SUPER_ADMIN"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "Verified rental property listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "propertyType": { "type": "string" },
+        "rent": { "type": "number" },
+        "deposit": { "type": "number" },
+        "bedrooms": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "sqft": { "type": "number" },
+        "address": { "type": "object" },
+        "images": { "type": "array" },
+        "amenities": { "type": "array" },
+        "landlordId": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "rent", "bedrooms", "bathrooms", "status"]
+    },
+    "RentalApplication": {
+      "title": "RentalApplication",
+      "description": "Verified tenant rental application with comprehensive identity, income, and background checks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "applicantId": { "type": "string" },
+        "applicantName": { "type": "string" },
+        "applicantEmail": { "type": "string", "format": "email" },
+        "applicantPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["SUBMITTED", "UNDER_REVIEW", "VERIFIED", "APPROVED", "REJECTED", "ARCHIVED"] },
+        "creditScore": { "type": "number" },
+        "monthlyIncome": { "type": "number" },
+        "employmentStatus": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "propertyId", "applicantName", "applicantEmail", "status"]
+    },
+    "TourBooking": {
+      "title": "TourBooking",
+      "description": "Scheduled virtual or in-person property walkthrough",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "applicantName": { "type": "string" },
+        "applicantEmail": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "tourType": { "type": "string", "enum": ["IN_PERSON", "LIVE_VIDEO_WALKTHROUGH", "3D_MATTERPORT"] },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "propertyId", "applicantName", "date", "time", "tourType"]
+    },
+    "AffiliatePartner": {
+      "title": "AffiliatePartner",
+      "description": "Affiliate partner network offer and click metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "url": { "type": "string" },
+        "commissionInfo": { "type": "string" },
+        "clicksCount": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "category", "url", "active"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and credentials"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Verified rental marketplace listings"
+    },
+    "/applications/{applicationId}": {
+      "schema": "RentalApplication",
+      "description": "Tenant rental applications"
+    },
+    "/tours/{tourId}": {
+      "schema": "TourBooking",
+      "description": "Scheduled property visits and live video tours"
+    },
+    "/affiliates/{affiliateId}": {
+      "schema": "AffiliatePartner",
+      "description": "Monetized affiliate partner promotions"
+    }
+  }
+}

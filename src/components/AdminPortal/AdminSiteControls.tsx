@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
-import { AffiliatePartnerLink } from '../../types';
+import { AffiliatePartnerLink, SharingSite } from '../../types';
+import { DEFAULT_SHARING_SITES } from '../../data/mockData';
+import { firestoreSync } from '../../services/firestoreSync';
 import {
   Sliders,
   Bell,
@@ -19,6 +21,17 @@ import {
   MousePointerClick,
   Layers,
   X,
+  Share2,
+  Crown,
+  CreditCard,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Globe,
+  ToggleLeft,
+  ToggleRight,
+  MessageSquare,
+  FileCheck,
 } from 'lucide-react';
 
 export const AdminSiteControls: React.FC = () => {
@@ -31,7 +44,36 @@ export const AdminSiteControls: React.FC = () => {
   const [autoApproveVerified, setAutoApproveVerified] = useState(settings.autoApproveVerifiedTenants);
   const [aiAssistantEnabled, setAiAssistantEnabled] = useState(settings.aiAssistantEnabled);
   const [featuredCities, setFeaturedCities] = useState<string[]>(settings.featuredCities);
+  const [applicationFee, setApplicationFee] = useState<number>(settings.applicationFee ?? 45);
+  const [stripeGatewayActive, setStripeGatewayActive] = useState<boolean>(settings.stripeGatewayActive ?? true);
+  const [stripePublishableKey, setStripePublishableKey] = useState<string>(settings.stripePublishableKey ?? 'pk_test_nestryy_sec_51N2');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Membership Options State
+  const [freePlanEnabled, setFreePlanEnabled] = useState<boolean>(settings.membershipOptions?.freePlanEnabled ?? true);
+  const [proPlanEnabled, setProPlanEnabled] = useState<boolean>(settings.membershipOptions?.proPlanEnabled ?? true);
+  const [proMonthlyPrice, setProMonthlyPrice] = useState<number>(settings.membershipOptions?.paidVerifiedPrice ?? 19);
+  const [annualDiscountPercent, setAnnualDiscountPercent] = useState<number>(settings.membershipOptions?.annualDiscountPercent ?? 20);
+
+  // Features Show / Hide Toggles
+  const [tenantBoardEnabled, setTenantBoardEnabled] = useState<boolean>(settings.featureFlags?.tenantRequestsBoard ?? true);
+  const [instantChatEnabled, setInstantChatEnabled] = useState<boolean>(settings.featureFlags?.instantChat ?? true);
+
+  // Sharing Sites Management State
+  const [sharingSites, setSharingSites] = useState<SharingSite[]>(() => {
+    return (settings.sharingSites && settings.sharingSites.length > 0)
+      ? settings.sharingSites
+      : DEFAULT_SHARING_SITES;
+  });
+  const [isSharingSiteModalOpen, setIsSharingSiteModalOpen] = useState(false);
+  const [editingSite, setEditingSite] = useState<SharingSite | null>(null);
+  const [siteForm, setSiteForm] = useState<Partial<SharingSite>>({
+    name: '',
+    iconName: 'globe',
+    shareUrlTemplate: '',
+    color: '#0D9488',
+    enabled: true,
+  });
 
   // Affiliate modal / editing states
   const [isAffiliateModalOpen, setIsAffiliateModalOpen] = useState(false);
@@ -81,12 +123,76 @@ export const AdminSiteControls: React.FC = () => {
         autoApproveVerifiedTenants: autoApproveVerified,
         aiAssistantEnabled,
         featuredCities,
+        applicationFee,
+        stripeGatewayActive,
+        stripePublishableKey,
+        sharingSites,
+        membershipOptions: {
+          freeEnabled: freePlanEnabled,
+          freePlanEnabled,
+          proVerifiedEnabled: proPlanEnabled,
+          proPlanEnabled,
+          vipEnterpriseEnabled: true,
+          freeVerifiedEnabled: freePlanEnabled,
+          paidVerifiedPrice: proMonthlyPrice,
+          annualDiscountPercent,
+        },
+        featureFlags: {
+          tenantRequestsBoard: tenantBoardEnabled,
+          instantChat: instantChatEnabled,
+          aiSearch: aiAssistantEnabled,
+        },
       });
 
-      setSettings(updated);
+      setSettings((prev) => ({
+        ...prev,
+        ...updated,
+        applicationFee,
+        stripeGatewayActive,
+        stripePublishableKey,
+        sharingSites,
+        membershipOptions: {
+          freeEnabled: freePlanEnabled,
+          freePlanEnabled,
+          proVerifiedEnabled: proPlanEnabled,
+          proPlanEnabled,
+          vipEnterpriseEnabled: true,
+          freeVerifiedEnabled: freePlanEnabled,
+          paidVerifiedPrice: proMonthlyPrice,
+          annualDiscountPercent,
+        },
+        featureFlags: {
+          tenantRequestsBoard: tenantBoardEnabled,
+          instantChat: instantChatEnabled,
+          aiSearch: aiAssistantEnabled,
+        },
+      }));
+
+      // Persist to Firebase Firestore
+      firestoreSync.saveSettings({
+        ...settings,
+        ...updated,
+        sharingSites,
+        membershipOptions: {
+          freeEnabled: freePlanEnabled,
+          freePlanEnabled,
+          proVerifiedEnabled: proPlanEnabled,
+          proPlanEnabled,
+          vipEnterpriseEnabled: true,
+          freeVerifiedEnabled: freePlanEnabled,
+          paidVerifiedPrice: proMonthlyPrice,
+          annualDiscountPercent,
+        },
+        featureFlags: {
+          tenantRequestsBoard: tenantBoardEnabled,
+          instantChat: instantChatEnabled,
+          aiSearch: aiAssistantEnabled,
+        },
+      }).catch(() => {});
+
       addToast(
         'Site Controls Saved',
-        'Website configuration, announcement bar, and credit score partner link saved successfully.',
+        `Website configuration, membership plans, payment gateway ($${applicationFee}), and ${sharingSites.length} sharing sites saved successfully.`,
         'success'
       );
       await refreshData();
@@ -96,6 +202,70 @@ export const AdminSiteControls: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Sharing Site Handlers
+  const handleToggleSiteEnabled = (id: string) => {
+    setSharingSites((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, enabled: s.enabled === false ? true : false } : s))
+    );
+  };
+
+  const handleDeleteSite = (id: string, name: string) => {
+    setSharingSites((prev) => prev.filter((s) => s.id !== id));
+    addToast('Sharing Site Removed', `${name} removed from active sharing directory.`, 'info');
+  };
+
+  const handleOpenNewSiteModal = () => {
+    setEditingSite(null);
+    setSiteForm({
+      name: '',
+      iconName: 'globe',
+      shareUrlTemplate: 'https://example.com/share?url={url}&title={title}',
+      color: '#0D9488',
+      enabled: true,
+    });
+    setIsSharingSiteModalOpen(true);
+  };
+
+  const handleEditSite = (site: SharingSite) => {
+    setEditingSite(site);
+    setSiteForm({ ...site });
+    setIsSharingSiteModalOpen(true);
+  };
+
+  const handleSaveSiteModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!siteForm.name || !siteForm.shareUrlTemplate) {
+      addToast('Validation Error', 'Site name and URL template are required.', 'warning');
+      return;
+    }
+
+    if (editingSite) {
+      setSharingSites((prev) =>
+        prev.map((s) =>
+          s.id === editingSite.id ? ({ ...s, ...siteForm } as SharingSite) : s
+        )
+      );
+      addToast('Site Updated', `${siteForm.name} configuration updated.`, 'success');
+    } else {
+      const newSite: SharingSite = {
+        id: `site-${Date.now()}`,
+        name: siteForm.name!,
+        iconName: siteForm.iconName || 'globe',
+        shareUrlTemplate: siteForm.shareUrlTemplate!,
+        color: siteForm.color || '#0D9488',
+        enabled: siteForm.enabled ?? true,
+      };
+      setSharingSites((prev) => [...prev, newSite]);
+      addToast('Site Added', `${newSite.name} added to listing share options.`, 'success');
+    }
+    setIsSharingSiteModalOpen(false);
+  };
+
+  const handleResetDefaultSites = () => {
+    setSharingSites(DEFAULT_SHARING_SITES);
+    addToast('Reset Complete', 'Default sharing sites restored.', 'info');
   };
 
   // Affiliate Handlers
@@ -347,6 +517,221 @@ export const AdminSiteControls: React.FC = () => {
             })}
           </div>
         </div>
+
+        {/* Module 5: Application Fee & Stripe Dynamic Payment Integration */}
+        <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <h3 className="font-bold text-sm text-white">Dynamic Application Fee &amp; Stripe</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="stripeToggle"
+                checked={stripeGatewayActive}
+                onChange={(e) => setStripeGatewayActive(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+              />
+              <label htmlFor="stripeToggle" className="text-xs text-stone-300 font-semibold cursor-pointer">
+                Stripe Active
+              </label>
+            </div>
+          </div>
+          <p className="text-xs text-stone-400">
+            When set above $0, applicants are presented with the secure Stripe payment flow to submit their screening fee before submission.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-stone-300 mb-1">
+                Application Fee ($ USD)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={150}
+                value={applicationFee}
+                onChange={(e) => setApplicationFee(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-300 mb-1">
+                Stripe Publishable Key
+              </label>
+              <input
+                type="text"
+                value={stripePublishableKey}
+                onChange={(e) => setStripePublishableKey(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-stone-300 font-mono text-[11px] outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Module 6: Pre-Set Screening Links Quick Overview */}
+        <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-teal-400" />
+            <h3 className="font-bold text-sm text-white">Pre-Set Screening Links</h3>
+          </div>
+          <p className="text-xs text-stone-400">
+            Pre-configured certified screening links available to tenants in the screening portal.
+          </p>
+
+          <div className="space-y-2">
+            {(settings.presetScreeningLinks || []).map((link) => (
+              <div key={link.id} className="p-2.5 rounded-xl bg-stone-950 border border-stone-800 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-white block">{link.name}</span>
+                  <span className="text-[11px] text-stone-400">{link.provider} &bull; {link.description}</span>
+                </div>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-teal-400 rounded-lg flex items-center gap-1 font-mono text-[10px]"
+                >
+                  <span>Open Portal</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Module 7: Membership Options & Verified Plans */}
+        <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-sm text-white">Membership Plans &amp; Pricing Controls</h3>
+          </div>
+          <p className="text-xs text-stone-400">
+            Show, hide, or adjust pricing for tenant membership tiers displayed on the Verified Membership page.
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+              <div>
+                <span className="text-xs font-bold text-white block">Free Verified Tier</span>
+                <span className="text-[11px] text-stone-400">
+                  Allow tenants to join standard verified roster with ID/credit upload and 250 credits.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={freePlanEnabled}
+                onChange={(e) => setFreePlanEnabled(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+              <div>
+                <span className="text-xs font-bold text-white block">Pro Verified Tier</span>
+                <span className="text-[11px] text-stone-400">
+                  Enable paid premium membership badge, instant application waiver, and priority card.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={proPlanEnabled}
+                onChange={(e) => setProPlanEnabled(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-stone-300 mb-1">
+                  Pro Monthly Price ($ USD)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={299}
+                  value={proMonthlyPrice}
+                  onChange={(e) => setProMonthlyPrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white text-xs outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-300 mb-1">
+                  Annual Discount (% Off)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={annualDiscountPercent}
+                  onChange={(e) => setAnnualDiscountPercent(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white text-xs outline-none focus:ring-2 focus:ring-amber-500 font-bold"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Module 8: Core Feature Toggles & Public Visibility */}
+        <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-teal-400" />
+            <h3 className="font-bold text-sm text-white">Feature Toggles &amp; Modules</h3>
+          </div>
+          <p className="text-xs text-stone-400">
+            Enable or disable public and portal feature modules across the application in real time.
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+              <div>
+                <span className="text-xs font-bold text-white block">Tenant Requests Board</span>
+                <span className="text-[11px] text-stone-400">
+                  Allow verified renters to broadcast housing preferences to local landlords.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={tenantBoardEnabled}
+                onChange={(e) => setTenantBoardEnabled(e.target.checked)}
+                className="w-4 h-4 text-teal-600 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+              <div>
+                <span className="text-xs font-bold text-white block">Instant Landlord-Tenant Chat</span>
+                <span className="text-[11px] text-stone-400">
+                  Enable live in-app messaging between applicants and verified property managers.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={instantChatEnabled}
+                onChange={(e) => setInstantChatEnabled(e.target.checked)}
+                className="w-4 h-4 text-teal-600 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+              <div>
+                <span className="text-xs font-bold text-white block">AI Assistant &amp; Matcher</span>
+                <span className="text-[11px] text-stone-400">
+                  Gemini-powered semantic natural language property search and listing copy generator.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={aiAssistantEnabled}
+                onChange={(e) => setAiAssistantEnabled(e.target.checked)}
+                className="w-4 h-4 text-teal-600 rounded cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
       </form>
 
       {/* SECTION: ADVANCED AFFILIATE & REVENUE PARTNER NETWORK */}
@@ -480,6 +865,258 @@ export const AdminSiteControls: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* SECTION: LISTING SHARING SITES DIRECTORY (ADD, EDIT, REMOVE, HIDE/SHOW) */}
+      <div className="bg-stone-900 p-6 rounded-2xl border border-stone-800 space-y-6 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-teal-400" />
+              <h3 className="font-bold text-base text-white">
+                Listing Sharing Sites Directory (Add, Edit, Remove, Hide)
+              </h3>
+            </div>
+            <p className="text-xs text-stone-400 mt-1">
+              Configure external platforms where landlords and tenants can syndicate and share listings with one click.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetDefaultSites}
+              className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+              title="Reset to default platforms"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Defaults</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenNewSiteModal}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Sharing Site</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sites Table */}
+        <div className="overflow-x-auto border border-stone-800 rounded-xl">
+          <table className="w-full text-left text-xs text-stone-300">
+            <thead className="bg-stone-950 text-[11px] uppercase tracking-wider text-stone-400 font-bold border-b border-stone-800">
+              <tr>
+                <th className="p-3">Platform</th>
+                <th className="p-3">Share URL Template</th>
+                <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-center">Visibility</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-800/60 font-medium">
+              {sharingSites.map((site) => (
+                <tr key={site.id} className="hover:bg-stone-800/40 transition-colors">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                        style={{ backgroundColor: site.color || '#0D9488' }}
+                      >
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-white block">{site.name}</span>
+                        <span className="text-[10px] text-stone-400 font-mono">{site.iconName || 'globe'}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <span className="font-mono text-stone-400 text-[11px] max-w-[320px] truncate block">
+                      {site.shareUrlTemplate}
+                    </span>
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        site.enabled !== false
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : 'bg-stone-800 text-stone-400 border border-stone-700'
+                      }`}
+                    >
+                      {site.enabled !== false ? '● Active' : '○ Hidden'}
+                    </span>
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSiteEnabled(site.id)}
+                      className={`p-1.5 rounded-lg border transition ${
+                        site.enabled !== false
+                          ? 'bg-emerald-950/40 border-emerald-800 text-emerald-400 hover:bg-emerald-900/50'
+                          : 'bg-stone-800 border-stone-700 text-stone-400 hover:bg-stone-750'
+                      }`}
+                      title={site.enabled !== false ? 'Click to hide site' : 'Click to show site'}
+                    >
+                      {site.enabled !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                  </td>
+
+                  <td className="p-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditSite(site)}
+                        className="p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 transition-colors"
+                        title="Edit Sharing Site"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSite(site.id, site.name)}
+                        className="p-1.5 rounded-lg bg-stone-800 hover:bg-rose-900/60 text-stone-400 hover:text-rose-300 transition-colors"
+                        title="Delete Sharing Site"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {sharingSites.length === 0 && (
+            <div className="p-8 text-center text-stone-500 text-xs">
+              No sharing sites configured. Click &ldquo;Add Sharing Site&rdquo; or &ldquo;Reset Defaults&rdquo;.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* MODAL: ADD / EDIT SHARING SITE */}
+      {isSharingSiteModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 text-stone-100 relative">
+            <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-teal-400" />
+                <h3 className="font-bold text-base text-white">
+                  {editingSite ? 'Edit Sharing Site' : 'Add New Sharing Site'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSharingSiteModalOpen(false)}
+                className="p-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSiteModal} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-stone-300 mb-1">Platform Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Zillow, Nextdoor, Bluesky, Threads, Telegram"
+                  value={siteForm.name || ''}
+                  onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-300 mb-1">Share URL Template *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="https://example.com/share?url={url}&text={title}"
+                  value={siteForm.shareUrlTemplate || ''}
+                  onChange={(e) => setSiteForm({ ...siteForm, shareUrlTemplate: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-teal-300 font-mono outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <p className="text-[11px] text-stone-400 mt-1">
+                  Use <code className="text-teal-400 font-bold font-mono">{'{url}'}</code> for listing link and <code className="text-teal-400 font-bold font-mono">{'{title}'}</code> for property description.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-300 mb-1">Icon Identifier</label>
+                  <select
+                    value={siteForm.iconName || 'globe'}
+                    onChange={(e) => setSiteForm({ ...siteForm, iconName: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="globe">Globe (Generic)</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="twitter">X / Twitter</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="reddit">Reddit</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="mail">Email</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-300 mb-1">Brand Accent Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={siteForm.color || '#0D9488'}
+                      onChange={(e) => setSiteForm({ ...siteForm, color: e.target.value })}
+                      className="w-8 h-8 rounded-lg border-0 bg-transparent cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={siteForm.color || '#0D9488'}
+                      onChange={(e) => setSiteForm({ ...siteForm, color: e.target.value })}
+                      className="flex-1 px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-white font-mono outline-none text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-950 border border-stone-800">
+                <div>
+                  <span className="font-bold text-white block">Active / Visible</span>
+                  <span className="text-[11px] text-stone-400">
+                    When enabled, appears in listing share dialogs for landlords and tenants.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={siteForm.enabled ?? true}
+                  onChange={(e) => setSiteForm({ ...siteForm, enabled: e.target.checked })}
+                  className="w-4 h-4 text-teal-600 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => setIsSharingSiteModalOpen(false)}
+                  className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold transition-all shadow-md"
+                >
+                  {editingSite ? 'Save Changes' : 'Add Sharing Site'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: ADD / EDIT AFFILIATE PARTNER */}
       {isAffiliateModalOpen && (

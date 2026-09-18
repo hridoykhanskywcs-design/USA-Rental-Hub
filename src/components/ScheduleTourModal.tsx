@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
+import { firestoreSync } from '../services/firestoreSync';
 import { X, Calendar, Clock, Video, UserCheck, Key, CheckCircle2 } from 'lucide-react';
 
 export const ScheduleTourModal: React.FC = () => {
@@ -20,7 +21,7 @@ export const ScheduleTourModal: React.FC = () => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
-      await api.scheduleTour({
+      const booked = await api.scheduleTour({
         propertyId: touringProperty.id,
         propertyTitle: touringProperty.title,
         applicantName: name || 'Interested Tenant',
@@ -30,6 +31,10 @@ export const ScheduleTourModal: React.FC = () => {
         date,
         timeSlot,
       });
+
+      if (booked) {
+        firestoreSync.scheduleTour(booked).catch(() => {});
+      }
 
       addToast('Tour Scheduled!', `Your ${tourType.replace('_', ' ').toLowerCase()} tour is confirmed for ${date} at ${timeSlot}.`, 'success');
       setTouringProperty(null);

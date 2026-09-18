@@ -2,20 +2,75 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nestryy | Verified Rentals, Homes & Property Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    
+    <!-- Title and Core SEO -->
+    <title>Nestryy - US Rental & Property Platform</title>
     <meta name="description" content="Next-generation US rental marketplace with verified tenant screening, property listings, automated bulk management, landlord suite, and marketing campaign portal." />
-    <meta property="og:title" content="Nestryy | Verified Rentals, Homes & Property Management" />
+    <meta name="keywords" content="rentals, apartments for rent, tenant screening, credit check, verified tenant, landlord portal, property management, nestryy" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://nestryy.com/" />
+
+    <!-- OpenGraph / Facebook -->
+    <meta property="og:title" content="Nestryy - US Rental & Property Platform" />
     <meta property="og:description" content="Next-generation US rental marketplace with verified tenant screening, property listings, automated bulk management, landlord suite, and marketing campaign portal." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nestryy.com/" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80" />
+
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Nestryy - US Rental & Property Platform" />
+    <meta name="twitter:description" content="Next-generation US rental marketplace with verified tenant screening, property listings, automated bulk management, landlord suite, and marketing campaign portal." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80" />
+
+    <!-- PWA & Mobile Web App Meta -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Nestryy" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Fonts & Leaflet Styles -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+    <!-- Google Structured Data (JSON-LD) for SEO Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://nestryy.com/#organization",
+          "name": "Nestryy",
+          "url": "https://nestryy.com/",
+          "logo": "https://nestryy.com/favicon.ico",
+          "description": "Next-generation US rental marketplace with verified tenant screening and landlord property management."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://nestryy.com/#website",
+          "url": "https://nestryy.com/",
+          "name": "Nestryy",
+          "publisher": {
+            "@id": "https://nestryy.com/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://nestryy.com/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body class="font-sans antialiased bg-stone-50 text-stone-900 selection:bg-teal-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

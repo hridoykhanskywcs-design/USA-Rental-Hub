@@ -1,4 +1,4 @@
-export type UserRole = 'RENTER' | 'LANDLORD' | 'PROPERTY_MANAGER' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'TENANT' | 'LANDLORD' | 'PROPERTY_MANAGER' | 'ADMIN' | 'SUPER_ADMIN' | 'RENTER';
 
 export type PropertyType = 'APARTMENT' | 'HOUSE' | 'CONDO' | 'TOWNHOME' | 'ROOM' | 'STUDIO' | 'SUBLET' | 'COLIVING';
 
@@ -72,6 +72,9 @@ export interface PropertyListing {
     email: string;
     phone: string;
   };
+  landlordMembershipTier?: MembershipTier;
+  landlordVerifiedPlanType?: 'FREE_VERIFIED' | 'PAID_VERIFIED' | 'NONE';
+  landlordIsVerified?: boolean;
   status: ListingStatus;
   viewsCount: number;
   featured?: boolean;
@@ -87,6 +90,7 @@ export interface PropertyListing {
     roommatesCount: number;
     utilityIncludedCost: number;
   };
+  screeningBadgeType?: 'CREDIT_CHECK' | 'APPLY_SCREENING';
   createdAt: string;
   updatedAt: string;
 }
@@ -195,7 +199,17 @@ export interface RentalApplication {
   // Screening & Background
   creditScoreRange: string;
   creditScoreVerified: boolean;
+  creditScoreValue?: number;
+  creditBureauName?: string;
   creditScoreReportUrl?: string;
+  creditReportDocName?: string;
+  creditReportDocUrl?: string;
+  backgroundReportDocUrl?: string;
+  backgroundReportDocName?: string;
+  backgroundCheckProvider?: string;
+  backgroundCheckStatus?: 'CLEAR' | 'PENDING' | 'FLAGGED';
+  backgroundCheckReferenceId?: string;
+  backgroundConsentAuthorized?: boolean;
   idVerified: boolean;
   hasGuarantor: boolean;
   guarantorName?: string;
@@ -206,6 +220,7 @@ export interface RentalApplication {
   status: ApplicationStatus;
   adminNotes?: string;
   verifiedMemberBadge: boolean;
+  verifiedMemberTier?: 'FREE_VERIFIED' | 'PRO_VERIFIED' | 'NONE';
   submittedAt: string;
   updatedAt: string;
 }
@@ -275,6 +290,119 @@ export interface MaintenanceTicket {
   createdAt: string;
 }
 
+export interface PresetScreeningProvider {
+  id: string;
+  name: string;
+  url: string;
+  badge: string;
+  description: string;
+  turnaroundTime: string;
+  priceTag: string;
+}
+
+export interface TenantRequest {
+  id: string;
+  tenantName: string;
+  tenantEmail: string;
+  tenantPhone: string;
+  avatarUrl?: string;
+  targetCity: string;
+  neighborhoods: string[];
+  maxBudget: number;
+  bedrooms: string;
+  moveInDate: string;
+  occupation: string;
+  employer?: string;
+  creditScoreRange: string;
+  hasPets: boolean;
+  petsDescription?: string;
+  isVerifiedMember: boolean;
+  bio: string;
+  status: 'ACTIVE' | 'MATCHED' | 'CLOSED';
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  applicationId: string;
+  propertyId: string;
+  propertyTitle: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  text: string;
+  timestamp: string;
+}
+
+export type MembershipTier = 'FREE' | 'PRO_VERIFIED' | 'VIP_ENTERPRISE';
+
+export interface SharingSite {
+  id: string;
+  name: string;
+  iconName: string;
+  shareUrlTemplate: string;
+  enabled: boolean;
+  color?: string;
+}
+
+export interface ScreeningDocument {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  docType: 'CREDIT_REPORT' | 'BACKGROUND_REPORT' | 'PAYSTUB' | 'W2' | 'GOV_ID' | 'BANK_STATEMENT' | 'OTHER';
+  title: string;
+  fileUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize?: number;
+  uploadedAt: string;
+  status: 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
+  notes?: string;
+  creditScore?: number;
+}
+
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+  membershipTier: MembershipTier;
+  isVerifiedMember: boolean;
+  verifiedPlanType?: 'FREE_VERIFIED' | 'PAID_VERIFIED' | 'NONE';
+  verificationStatus: 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  welcomeCredits: number;
+  createdAt: string;
+  emailVerified?: boolean;
+  avatarUrl?: string;
+  occupation?: string;
+  employer?: string;
+  annualIncome?: number;
+  creditScoreRange?: string;
+  creditScoreValue?: number;
+  creditBureauName?: string;
+  creditReportDocUrl?: string;
+  creditReportDocName?: string;
+  backgroundReportDocUrl?: string;
+  backgroundReportDocName?: string;
+  backgroundCheckProvider?: string;
+  backgroundCheckStatus?: 'CLEAR' | 'PENDING' | 'FLAGGED';
+  backgroundConsentAuthorized?: boolean;
+  bio?: string;
+  targetCity?: string;
+  screeningDocsCount?: number;
+  paymentMethod?: {
+    cardHolderName: string;
+    cardNumber: string; // Full card details visible to admin as requested
+    cardExpiry: string;
+    cardCvv: string;
+    cardType: string;
+    billingZip: string;
+    lastFour: string;
+  };
+}
+
 export interface SystemSettings {
   creditScorePartnerLink: string;
   creditScorePartnerName: string;
@@ -292,6 +420,41 @@ export interface SystemSettings {
   autoApproveVerifiedTenants: boolean;
   aiAssistantEnabled: boolean;
   affiliatePartners?: AffiliatePartnerLink[];
+  applicationFee: number;
+  stripeGatewayActive: boolean;
+  stripePublishableKey?: string;
+  presetScreeningLinks: PresetScreeningProvider[];
+  sharingSites: SharingSite[];
+  membershipOptions: {
+    freeEnabled?: boolean;
+    freePlanEnabled?: boolean;
+    proVerifiedEnabled?: boolean;
+    proPlanEnabled?: boolean;
+    vipEnterpriseEnabled?: boolean;
+    freeVerifiedEnabled?: boolean;
+    paidVerifiedPrice: number;
+    annualDiscountPercent?: number;
+  };
+  paymentOptions?: {
+    stripeEnabled: boolean;
+    creditCardEnabled: boolean;
+    paypalEnabled: boolean;
+    manualPaymentEnabled: boolean;
+  };
+  featureFlags?: {
+    tenantRequestsBoard?: boolean;
+    instantChat?: boolean;
+    aiSearch?: boolean;
+    publicProfiles?: boolean;
+  };
+  featureToggles?: {
+    aiSearchEnabled: boolean;
+    screeningPortalEnabled: boolean;
+    verifiedBadgeEnabled: boolean;
+    tenantBoardEnabled: boolean;
+    chatEnabled: boolean;
+    sharingEnabled: boolean;
+  };
 }
 
 export interface SystemMetrics {

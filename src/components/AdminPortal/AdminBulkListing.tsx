@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
+import { firestoreSync } from '../../services/firestoreSync';
 import { PropertyListing } from '../../types';
 import {
   FileSpreadsheet,
@@ -205,6 +206,13 @@ export const AdminBulkListing: React.FC = () => {
       setIsPublishing(true);
       const report = await api.bulkImportProperties(itemsToImport);
       setImportReport(report);
+
+      // Persist newly added listings to Firestore
+      if (report.addedListings && report.addedListings.length > 0) {
+        report.addedListings.forEach((p) => {
+          firestoreSync.saveProperty(p).catch(() => {});
+        });
+      }
 
       addToast(
         'Bulk Syndication Complete!',
